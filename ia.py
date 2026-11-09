@@ -1,9 +1,9 @@
 """Triagem automática do ticket com IA.
 
-Fluxo: o texto do cliente vai para a API do Claude, que devolve a categoria
-e uma resposta automática. Se a API não estiver disponível (sem chave, sem
-internet, erro), o sistema usa regras locais por palavra-chave, para nunca
-travar a abertura do ticket.
+Fluxo: o texto do cliente vai para a API do Google Gemini, que devolve a
+categoria e uma resposta automática. Se a API não estiver disponível (sem
+chave, sem internet, erro), o sistema usa regras locais por palavra-chave,
+para nunca travar a abertura do ticket.
 """
 
 import json
@@ -14,8 +14,8 @@ import requests
 
 CATEGORIAS = ("Problema Físico", "Lentidão", "Fatura", "Plano/Contrato", "Outros")
 
-URL_API = "https://api.anthropic.com/v1/messages"
-MODELO = os.environ.get("SAC_MODELO", "claude-haiku-5-5")
+URL_API = "https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
+MODELO = os.environ.get("GEMINI_MODELO", "gemini-3.5-flash-lite")
 
 INSTRUCAO = (
     "Você é o assistente de suporte de uma provedora de internet. "
@@ -72,30 +72,44 @@ def _triagem_local(descricao):
     return melhor_categoria, RESPOSTAS_PADRAO[melhor_categoria]
 
 
+def _mensagem_erro(resposta):
+    """Pega o motivo do erro que a API devolveu (ex.: chave inválida)."""
+    try:
+        return resposta.json()["error"]["message"][:150]
+    except Exception:
+        return resposta.text[:150]
+
+
 def _triagem_com_api(descricao):
-    """Plano A: chama a API do Claude. Qualquer falha vira exceção."""
-    chave = os.environ.get("ANTHROPIC_API_KEY")
+    """Plano A: chama a API do Gemini. Qualquer falha vira exceção."""
+    chave = os.environ.get("GEMINI_API_KEY")
     if not chave:
-        raise RuntimeError("ANTHROPIC_API_KEY não definida")
+        raise RuntimeError("GEMINI_API_KEY não definida")
 
     resposta = requests.post(
-        URL_API,
+        URL_API.format(modelo=MODELO),
         headers={
-            "x-api-key": chave,
-            "anthropic-version": "2023-06-01",
+            "x-goog-api-key": chave,  # a chave vai no cabeçalho, não na URL
             "content-type": "application/json",
         },
         json={
-            "model": MODELO,
-            "max_tokens": 500,
-            "system": INSTRUCAO,
-            "messages": [{"role": "user", "content": descricao}],
+            # instrução do sistema: o "papel" da IA
+            "system_instruction": {"parts": [{"text": INSTRUCAO}]},
+            # mensagem do usuário: o relato do cliente
+            "contents": [{"role": "user", "parts": [{"text": descricao}]}],
+            "generationConfig": {
+                "responseMimeType": "application/json",  # pede a resposta em JSON
+                "temperature": 0.2,                      # respostas mais estáveis
+                "maxOutputTokens": 1024,
+            },
         },
-        timeout=20,
+        timeout=30,
     )
-    resposta.raise_for_status()
+    if resposta.status_code != 200:
+        raise RuntimeError(f"erro {resposta.status_code}: {_mensagem_erro(resposta)}")
 
-    texto = resposta.json()["content"][0]["text"]
+    partes = resposta.json()["candidates"][0]["content"]["parts"]
+    texto = "".join(p.get("text", "") for p in partes if not p.get("thought"))
     dados = json.loads(texto[texto.find("{"): texto.rfind("}") + 1])
 
     categoria = dados.get("categoria", "Outros")
@@ -111,7 +125,7 @@ def triar_ticket(descricao):
     """Devolve (categoria, resposta_automatica, origem)."""
     try:
         categoria, resposta = _triagem_com_api(descricao)
-        return categoria, resposta, "IA (API Claude)"
+        return categoria, resposta, "IA (API Gemini)"
     except Exception as erro:  # sem chave, sem internet, JSON inválido...
         categoria, resposta = _triagem_local(descricao)
         return categoria, resposta, f"regras locais ({erro})"
