@@ -11,6 +11,7 @@ Projeto acadêmico de Ciência da Computação que integra cinco pilares: estrut
 - Busca de ticket por ID usando uma **Árvore Binária de Busca (BST)**
 - Listagem de todos os tickets em ordem de ID (percurso em-ordem da BST)
 - Listagem de tickets por categoria usando **dicionário (tabela hash)**
+- Consulta de todos os tickets de um cliente (consulta SQL pela chave estrangeira)
 - Fluxo de atendimento: ticket **Aberto → Em atendimento → Resolvido**
 - Exclusão de tickets
 - Persistência em banco de dados **SQLite**: os dados continuam salvos ao fechar o programa
@@ -23,7 +24,7 @@ Projeto acadêmico de Ciência da Computação que integra cinco pilares: estrut
 | POO | `Pessoa` → `Cliente` e `Atendente` (herança), `Ticket` com encapsulamento do status e polimorfismo em `resumo()` (`modelos.py`) |
 | Banco de dados | SQLite com 3 tabelas (`clientes`, `atendentes`, `tickets`), chaves primárias e estrangeiras (`banco.py`) |
 | Database application | CRUD completo com consultas parametrizadas (`banco.py`, `servico.py`, `main.py`) |
-| IA | Triagem via API do Claude, com fallback local por palavras-chave (`ia.py`) |
+| IA | Triagem via API do Google Gemini, com fallback local por palavras-chave (`ia.py`) |
 
 ## Estrutura do projeto
 
@@ -49,7 +50,7 @@ main.py  →  servico.py  →  banco.py  →  sac.db
 ## Pré-requisitos
 
 - Python 3.9 ou superior
-- (Opcional, para a triagem com IA) uma chave de API da Anthropic
+- (Para a triagem com IA) uma chave de API gratuita do Google Gemini, criada em [Google AI Studio](https://aistudio.google.com/apikey)
 
 ## Instalação
 
@@ -61,29 +62,29 @@ pip install -r requirements.txt
 
 ## Configurando a IA
 
-A chave da API é lida da variável de ambiente `ANTHROPIC_API_KEY`. **Nunca coloque a chave dentro do código nem a envie ao GitHub.**
+A chave da API é lida da variável de ambiente `GEMINI_API_KEY`. **Nunca coloque a chave dentro do código nem a envie ao GitHub.**
 
 Linux / macOS:
 
 ```bash
-export ANTHROPIC_API_KEY="sua-chave"
+export GEMINI_API_KEY="sua-chave"
 ```
 
 Windows (cmd):
 
 ```bat
-set ANTHROPIC_API_KEY=sua-chave
+set GEMINI_API_KEY=sua-chave
 ```
 
 Windows (PowerShell):
 
 ```powershell
-$env:ANTHROPIC_API_KEY="sua-chave"
+$env:GEMINI_API_KEY="sua-chave"
 ```
 
-O modelo padrão é `claude-haiku-5-5`. Para usar outro, defina a variável `SAC_MODELO`.
+O modelo padrão é `gemini-3.5-flash-lite`. Para usar outro, defina a variável `GEMINI_MODELO`.
 
-**Sem chave ou sem internet?** O sistema continua funcionando: a triagem usa regras locais por palavras-chave. A tela mostra a origem da triagem em cada ticket ("IA (API Claude)" ou "regras locais").
+**Sem chave ou sem internet?** O sistema continua funcionando: a triagem usa regras locais por palavras-chave. A tela mostra a origem da triagem em cada ticket ("IA (API Gemini)" ou "regras locais", seguido do motivo do erro).
 
 ## Como usar
 
@@ -104,6 +105,7 @@ Menu principal:
  8 - Resolver ticket
  9 - Excluir ticket
 10 - Ver tamanho e altura da BST
+11 - Listar tickets de um cliente
  0 - Sair
 ```
 
@@ -146,4 +148,6 @@ Para usar outro arquivo de banco, defina a variável `SAC_DB`.
 
 ## Autores
 
-Projeto desenvolvido em grupo. **[Luis Otavio, Guilherme Henrique, Tiago Welsing, Samir Pedrosa, Macel Kristhian]**
+Projeto desenvolvido em grupo. **[Luis Otavio, Tiago Welsing, Guilherme Henrique, Samir Pedrosa, Macel Kristhian]**
+
+
